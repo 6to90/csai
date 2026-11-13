@@ -1,0 +1,29 @@
+@import "tailwindcss";
+/* DESIGN.md (Notion style): warm paper canvas, white hairline cards, one blue action, flat accent fills. No gradients. */
+@theme {
+  --color-notion-blue: #0075de; --color-paper: #f6f5f4; --color-ink: #000; --color-graphite: #615d59; --color-stone: #757575;
+  --color-sky-tint: #e6f3fe; --color-marigold: #ffb110; --color-coral: #f64932; --color-signal-blue: #097fe8; --color-sky-wash: #62aef0;
+  --color-midnight: #02093a; --color-peach: #f6d5b8;
+  --font-sans: 'Inter', 'Pretendard Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  --font-serif: 'Source Serif Pro', 'Noto Serif KR', Georgia, serif;
+}
+:root {
+  /* Legacy variable names are kept so existing feature components (inbox, channels…) inherit the new design. */
+  --bg-base: #f6f5f4; --bg-surface: #ffffff; --bg-elevated: #efeeec;
+  --border: rgba(0,0,0,.08); --border-strong: #8a8682;
+  --text-primary: rgba(0,0,0,.95); --text-secondary: #615d59; --text-muted: #6b6b6b;
+  --accent: #0075de; --accent-fg: #ffffff;
+  --success: #1a7f37; --warning: #a65b00; --danger: #c62a17; --ai: #02093a;
+}
+html { scroll-behavior: smooth; }
+body { background: var(--bg-base); color: var(--text-primary); font-family: var(--font-sans); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bare-focus:focus-visible { outline: none; } /* only where the parent shows the focus state */
+.display { letter-spacing: -0.028em; line-height: 1.08; font-weight: 600; }
+.card { background: #fff; border: 1px solid var(--border); border-radius: 12px; }
+.mockup-shadow { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.nav-shadow { box-shadow: 0 .7px 1.462px rgba(0,0,0,.015), 0 3px 9px rgba(0,0,0,.03); }
+a, button { transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
+@keyframes bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+.bob { animation: bob 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
