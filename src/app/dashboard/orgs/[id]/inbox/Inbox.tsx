@@ -27,6 +27,7 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
   const [internal, setInternal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [detailErr, setDetailErr] = useState(false);
   const clientId = useRef<string>(crypto.randomUUID());   // reused until the send succeeds: a retry/double click cannot double-send
   const detail = detailRaw && detailRaw.id === sel_ ? detailRaw : null;   // never show the previous conversation while the next one loads
   const selRef = useRef<string | null>(null);
@@ -40,7 +41,10 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
     const p = new URLSearchParams(); if (f.status) p.set('status', f.status); if (f.assignee) p.set('assignee', f.assignee); if (f.q.trim()) p.set('q', f.q.trim()); if (f.unread) p.set('unread', '1');
     const r = await api(`/api/v1/conversations?${p}`).catch(() => null); if (r?.ok) { setConvs(r.json.data); setList('ok'); } else setList('error');
   }, [api, f]);
-  const loadDetail = useCallback(async (id: string) => { const r = await api(`/api/v1/conversations/${id}`); if (r.ok && selRef.current === id) setDetail(r.json.data); }, [api]);
+  const loadDetail = useCallback((id: string) => api(`/api/v1/conversations/${id}`).then(
+    (r) => { if (selRef.current !== id) return; if (r.ok) { setDetail(r.json.data); setDetailErr(false); } else setDetailErr(true); },   // never leave the pane on "loading" forever
+    () => { if (selRef.current === id) setDetailErr(true); },
+  ), [api]);
   useEffect(() => { const t = setTimeout(loadList, f.q ? 300 : 0); return () => clearTimeout(t); }, [loadList, f.q]);
   useEffect(() => { if (!sel_) return; void loadDetail(sel_); if (canAct) void api(`/api/v1/conversations/${sel_}/read`, { method: 'POST' }).then(loadList); }, [sel_]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -85,8 +89,8 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
   return (
     <div className="flex flex-col gap-3">
       <div role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-[#615d59]"><span aria-hidden className={`size-2 rounded-full ${liveDot}`} />{live === 'live' ? '실시간 연결됨' : live === 'down' ? '연결이 끊겼습니다. 재연결 중이며 30초마다 새로고침합니다.' : '연결 중…'}</div>
-      <div className={`grid gap-3 md:h-[calc(100dvh-10rem)] md:min-h-[520px] md:grid-cols-[340px_minmax(0,1fr)] ${sel_ ? 'xl:grid-cols-[340px_minmax(0,1fr)_260px]' : ''}`}>
-        <section aria-label="대화 목록" className={`${sel_ ? 'hidden md:flex' : 'flex'} min-h-0 flex-col gap-3`}>
+      <div className={`grid gap-3 lg:h-[calc(100dvh-10rem)] lg:min-h-[520px] lg:grid-cols-[340px_minmax(0,1fr)] ${sel_ ? 'xl:grid-cols-[340px_minmax(0,1fr)_260px]' : ''}`}>
+        <section aria-label="대화 목록" className={`${sel_ ? 'hidden lg:flex' : 'flex'} min-h-0 flex-col gap-3`}>
           <div className="card flex flex-col gap-2 p-3">
             <label className="sr-only" htmlFor="q">검색</label>
             <input id="q" type="search" placeholder="이름·이메일·제목 검색" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} className="min-h-10 rounded-lg border border-[var(--border-strong)] bg-white px-3 text-sm placeholder:text-[var(--text-muted)]" />
@@ -113,11 +117,16 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
           </ul>
         </section>
 
-        <section aria-label="대화 상세" className={`${sel_ ? 'flex' : 'hidden md:flex'} card min-h-0 min-w-0 flex-col gap-3 p-4`}>
+        <section aria-label="대화 상세" className={`${sel_ ? 'flex' : 'hidden lg:flex'} card min-h-0 min-w-0 flex-col gap-3 p-4`}>
           {!detail ? (sel_
-            ? <p className="m-auto text-sm text-[var(--text-secondary)]" role="status">불러오는 중…</p>
+            ? (<div className="flex flex-1 flex-col gap-3">
+                <Button variant="secondary" className="w-fit lg:hidden" onClick={() => setSel(null)}>← 목록</Button>
+                {detailErr
+                  ? <div role="alert" className="m-auto text-center text-sm text-[#8a1c0e]">대화를 불러오지 못했습니다. <button type="button" className="underline" onClick={() => void loadDetail(sel_)}>다시 시도</button></div>
+                  : <p className="m-auto text-sm text-[var(--text-secondary)]" role="status">불러오는 중…</p>}
+              </div>)
             : <div className="m-auto max-w-xs text-center"><p className="text-base font-semibold">대화를 선택하세요</p><p className="mt-1 text-sm text-[var(--text-secondary)]">목록에서 문의를 고르면 메시지와 답장 입력이 여기에 표시됩니다.</p></div>) : (<>
-            <div className="flex items-center gap-2"><Button variant="secondary" className="md:hidden" onClick={() => setSel(null)}>← 목록</Button><h2 className="truncate text-base font-semibold">{detail.subject ?? '(제목 없음)'}</h2></div>
+            <div className="flex items-center gap-2"><Button variant="secondary" className="lg:hidden" onClick={() => setSel(null)}>← 목록</Button><h2 className="truncate text-base font-semibold">{detail.subject ?? '(제목 없음)'}</h2></div>
             <div className="flex flex-wrap gap-2">
               <select aria-label="상태 변경" disabled={!canAct} value={detail.status} onChange={(e) => patch({ status: e.target.value })} className={sel}>{Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
               <select aria-label="우선순위 변경" disabled={!canAct} value={detail.priority} onChange={(e) => patch({ priority: e.target.value })} className={sel}>{Object.entries(PRIORITY).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
@@ -132,7 +141,7 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
                       <Button variant="secondary" onClick={() => setConfirmEnd(false)}>취소</Button></span>
                   : <Button variant="secondary" onClick={() => setConfirmEnd(true)}>채팅 종료</Button>)}
               </div>)}
-            <ol aria-label="메시지" className="flex max-h-[60dvh] min-h-0 flex-1 flex-col gap-2 overflow-y-auto md:max-h-none">
+            <ol aria-label="메시지" className="flex max-h-[60dvh] min-h-0 flex-1 flex-col gap-2 overflow-y-auto lg:max-h-none">
               {detail.messages.map((m) => (
                 <li key={m.id} className={`max-w-[92%] rounded-xl border p-3 ${m.direction === 'inbound' ? 'self-start border-transparent bg-[#f6f5f4]' : m.direction === 'internal' ? 'self-end border-[#ffb110] bg-[#fff4d6]' : 'self-end border-transparent bg-[#e6f3fe]'}`}>
                   <div className="text-xs text-[var(--text-secondary)]">{m.direction === 'inbound' ? name(detail) : m.direction === 'internal' ? '내부 메모 (고객에게 보이지 않음)' : '상담원'} · {new Date(m.created_at).toLocaleString('ko-KR')}</div>
