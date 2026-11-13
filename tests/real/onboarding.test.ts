@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { call, CAPTCHA_TOKEN, invite, mkOrg, mkUser, pool, realLogin, TEST_PASSWORD, tokenOf, uniq } from '../api/helpers';
 import { mailpitSender } from '@/server/adapters/mail';
+import { inviteCode } from '@/server/domain/invite-proof';
 
 // REAL local Supabase + Next server (no mail transport configured => links come back in the response). Run via scripts/test-supabase.sh.
 const CRON = { authorization: 'Bearer test-cron-secret-value' };
@@ -10,7 +11,15 @@ const provision = (email: string, slug: string, headers: Record<string, string> 
 const mkCustomer = async () => { const email = `cust-${uniq()}@example.com`, slug = `acme-${uniq()}`; const r = await provision(email, slug); expect(r.status).toBe(201); return { email, slug, org: r.body.data.org_id as string, token: tokenOf(r.body.data.accept_url), inv: r.body.data.invitation_id as string }; };
 const ip = (_n: string) => ({ 'x-forwarded-for': `10.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}` });   // fresh IP bucket per call
 const preview = (token: string, h = ip('1.1')) => call('POST', '/api/v1/invitations/preview', { body: { token }, headers: h });
-const redeem = (token: string, password: string, h = ip('1.2')) => call('POST', '/api/v1/invitations/redeem', { body: { token, password }, headers: h });
+const redeemRaw = (body: Record<string, unknown>, h: Record<string, string>) => call('POST', '/api/v1/invitations/redeem', { body, headers: h });
+// Sign-up now needs proof of mailbox: step 1 mails a code (202), step 2 presents it. The test derives the code with the same server secret
+// (it is only ever delivered by e-mail in production). Non-202 answers (404/409/429/422...) are returned unchanged from step 1.
+const redeem = async (token: string, password: string, h = ip('1.2')) => {
+  const first = await redeemRaw({ token, password }, h);
+  if (first.status !== 202) return first;
+  const email = (await preview(token, ip('1.3'))).body.data.email as string;
+  return redeemRaw({ token, password, code: inviteCode(token, email) }, h);
+};
 const bad = `${uniq()}${'x'.repeat(35)}`;   // fresh per run: rate-limit counters outlive a test run
 
 describe('operator provisioning', () => {
@@ -68,8 +77,8 @@ describe('invite-by-link onboarding (new account)', () => {
     expect((await pool.query('select 1 from memberships where org_id=$1', [c.org])).rowCount).toBe(1);
   });
   it('redeem is rate-limited per link', async () => {
-    const tok = `${uniq()}${'y'.repeat(35)}`; const out: number[] = []; for (let i = 0; i < 7; i++) out.push((await redeem(tok, TEST_PASSWORD, ip(`4.${i}`))).status);
-    expect(out.slice(0, 5)).toEqual([404, 404, 404, 404, 404]); expect(out.slice(5)).toEqual([429, 429]);
+    const tok = `${uniq()}${'y'.repeat(35)}`; const out: number[] = []; for (let i = 0; i < 12; i++) out.push((await redeem(tok, TEST_PASSWORD, ip(`4.${i}`))).status);
+    expect(out.slice(0, 10)).toEqual(Array(10).fill(404)); expect(out.slice(10)).toEqual([429, 429]);
   });
 });
 
@@ -119,5 +128,18 @@ describe('mail adapter', () => {
     const c = await mkCustomer(); await redeem(c.token, TEST_PASSWORD, ip('5.1'));
     const log = process.env.NEXT_LOG ? readFileSync(process.env.NEXT_LOG, 'utf8') : '';
     expect(log).not.toContain(c.token); expect(log).not.toContain(TEST_PASSWORD); void CAPTCHA_TOKEN;
+  });
+});
+
+describe('redeem proof of mailbox (real GoTrue)', () => {
+  it('token + password alone never creates an account; a wrong code is refused; the right code creates a confirmed account that can accept', async () => {
+    const c = await mkCustomer();
+    const h = ip('6.1');
+    expect((await redeemRaw({ token: c.token, password: TEST_PASSWORD }, h)).status).toBe(202);          // code mailed (dev: logged), nothing created yet
+    expect((await preview(c.token)).body.data.has_account).toBe(false);
+    expect((await redeemRaw({ token: c.token, password: TEST_PASSWORD, code: '00000000' }, h)).status).toBe(422);
+    expect((await preview(c.token)).body.data.has_account).toBe(false);
+    expect((await redeemRaw({ token: c.token, password: TEST_PASSWORD, code: inviteCode(c.token, c.email) }, h)).status).toBe(201);
+    expect((await preview(c.token)).body.data.has_account).toBe(true);
   });
 });

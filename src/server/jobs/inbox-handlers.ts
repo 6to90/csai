@@ -42,7 +42,7 @@ async function sendOutbound(job: JobRow) {
     const { data: ident } = await db.from('customer_identities').select('value').eq('org_id', job.org_id).eq('customer_id', conv!.customer_id).eq('kind', 'email').limit(1).maybeSingle();
     if (!ident || !ch?.address) throw new SmtpError('no recipient', 'no_recipient', 'permanent');
     const smtpUrl = ch.integration_id ? await secrets().get(job.org_id, ch.integration_id, 'smtp_url') : null;
-    const sender: MailSender | null = smtpUrl ? smtpSender(smtpUrl) : SMTP_FALLBACK();
+    const sender: MailSender | null = smtpUrl ? smtpSender(smtpUrl, { publicOnly: true }) : SMTP_FALLBACK();
     if (!sender) throw new SmtpError('no transport', 'no_transport', 'permanent');
     const { data: prior } = await db.from('messages').select('external_id').eq('org_id', job.org_id).eq('conversation_id', m.conversation_id).eq('direction', 'inbound').order('created_at', { ascending: false }).limit(1).maybeSingle();
     const subj = conv!.subject ?? '';

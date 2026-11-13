@@ -18,3 +18,5 @@ grant usage on schema extensions to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
 alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
+-- Supabase ships this publication by default (Realtime); migrations ALTER it, so the local mimic must have it too.
+create publication supabase_realtime;

@@ -1,6 +1,7 @@
 import 'server-only';
 import { connect as tcp, isIP, type Socket } from 'node:net';
 import { connect as tls } from 'node:tls';
+import { allowPrivateSmtp, guardedLookup, isBlockedAddress, SmtpTargetError } from '@/server/security/net-guard';
 
 /** Outbound mail boundary (CLAUDE.md §3.6). Domain code only sees MailSender. Configure with MAIL_TRANSPORT = mailpit | smtp; unset => none (callers fall back to returning the link once). */
 export interface MailMessage { to: string; subject: string; text: string; from?: string; fromName?: string; messageId?: string; inReplyTo?: string; references?: string[] }
@@ -26,7 +27,8 @@ export class SmtpError extends Error {
   constructor(msg: string, public code: string, public kind: 'transient' | 'permanent' | 'uncertain') { super(msg); }
 }
 export interface MailResult { ref?: string }
-export interface SmtpOptions { ca?: string | Buffer; timeoutMs?: number }
+/** publicOnly: tenant-supplied host. Refuses loopback/private/reserved targets, including after DNS resolution at connect time (anti-rebinding). */
+export interface SmtpOptions { ca?: string | Buffer; timeoutMs?: number; publicOnly?: boolean }
 const CERT_ERR = /^(ERR_TLS_CERT_ALTNAME_INVALID|DEPTH_ZERO_SELF_SIGNED_CERT|SELF_SIGNED_CERT_IN_CHAIN|UNABLE_TO_VERIFY_LEAF_SIGNATURE|UNABLE_TO_GET_ISSUER_CERT.*|CERT_.*|ERR_SSL_.*)$/;
 const encWord = (s: string) => (/^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${Buffer.from(s).toString('base64')}?=`);
 const hostOf = (u: URL) => u.hostname.replace(/^\[|\]$/g, '');
@@ -41,7 +43,10 @@ export function smtpSender(url: string, opts: SmtpOptions = {}): MailSender {
   const port = Number(u.port || (secure ? 465 : starttls ? 587 : 25)); const host = hostOf(u);
   const user = u.username ? decodeURIComponent(u.username) : '', pass = decodeURIComponent(u.password);
   const timeout = opts.timeoutMs ?? 15_000;
-  const tlsOpts = { host, port, servername: isIP(host) ? undefined : host, rejectUnauthorized: true, ca: opts.ca };
+  const guard = !!opts.publicOnly && !allowPrivateSmtp();
+  // net/tls skip `lookup` for IP literals, so those are checked here; names are checked by guardedLookup on the address actually used.
+  const lookup = guard ? guardedLookup : undefined;
+  const tlsOpts = { host, port, servername: isIP(host) ? undefined : host, rejectUnauthorized: true, ca: opts.ca, lookup };
   return {
     async send(m): Promise<MailResult> {
       const from = clean(m.from ?? FROM()), to = clean(m.to);
@@ -56,6 +61,7 @@ export function smtpSender(url: string, opts: SmtpOptions = {}): MailSender {
       const fail = (e: unknown): never => {
         const code = (e as { code?: string }).code ?? '';
         if (e instanceof SmtpError) throw e;
+        if (e instanceof SmtpTargetError) throw new SmtpError('smtp target not allowed', 'target_blocked', 'permanent');
         if (CERT_ERR.test(code)) throw new SmtpError('tls certificate rejected', 'tls_cert_invalid', 'permanent');
         throw new SmtpError('smtp connection failed', code === 'ECONNREFUSED' ? 'connect_refused' : /timeout/i.test(String((e as Error).message)) ? 'timeout' : 'connect_failed', 'transient');
       };
@@ -76,7 +82,8 @@ export function smtpSender(url: string, opts: SmtpOptions = {}): MailSender {
       };
       try {
         try {
-          sock = secure ? tls(tlsOpts) : tcp({ host, port }); hook(sock);
+          if (guard && isIP(host) && isBlockedAddress(host)) throw new SmtpTargetError('smtp_host_blocked');
+          sock = secure ? tls(tlsOpts) : tcp({ host, port, lookup }); hook(sock);
           if (!(await reply()).startsWith('220')) throw new SmtpError('smtp greeting', 'smtp_greeting', 'transient');
           let caps = await cmd('EHLO csai', '250', 'ehlo');
           let encrypted = secure;
@@ -127,6 +134,15 @@ export async function sendInvitationMail(to: string, orgName: string, acceptUrl:
   const s = mailSender(); if (!s) return false;
   try {
     await s.send({ to, subject: `[${clean(orgName)}] 초대가 도착했습니다`, text: `${orgName}에서 AI Customer Operations에 초대했습니다.\n\n아래 링크에서 수락하세요 (${expiresAt.slice(0, 10)}까지 유효, 1회용):\n${acceptUrl}\n\n본인이 요청한 초대가 아니라면 이 메일을 무시하세요.\n` });
+    return true;
+  } catch { return false; }
+}
+
+/** One-time proof-of-mailbox code for invitation sign-up. The code is the only secret in the mail and is never logged. Returns false when no transport is configured or sending failed. */
+export async function sendInviteCodeMail(to: string, code: string): Promise<boolean> {
+  const s = mailSender(); if (!s) return false;
+  try {
+    await s.send({ to, subject: '[AI Customer Operations] 이메일 확인 코드', text: `초대를 수락하려면 아래 확인 코드를 입력하세요 (30분 이내, 1회용):\n\n${code}\n\n본인이 요청하지 않았다면 이 메일을 무시하세요. 코드를 다른 사람에게 알려 주지 마세요.\n` });
     return true;
   } catch { return false; }
 }

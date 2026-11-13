@@ -17,6 +17,7 @@ WEBP=3112; PIDS=(); LOG="$(mktemp)"
 trap 'for p in "${PIDS[@]:-}"; do kill "$p" 2>/dev/null || true; done; rm -f "$LOG"' EXIT
 export NEXT_PUBLIC_SUPABASE_URL="$API_URL" NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_KEY"
 export SECRETS_MASTER_KEY="$(openssl rand -base64 32)"   # throwaway per run; encrypts channel secrets in the local DB only
+export SMTP_ALLOW_PRIVATE_HOSTS=1   # TEST ONLY: lets tests point a channel at a local fake SMTP server
 export CRON_SECRET="test-cron-secret-value" RATE_LIMIT_SALT="test-salt" APP_URL="http://127.0.0.1:$WEBP" TRUSTED_PROXY_HOPS=1
 pnpm exec next build >"$LOG.build" 2>&1 || { tail -20 "$LOG.build"; exit 1; }
 export NEXT_LOG="$LOG"

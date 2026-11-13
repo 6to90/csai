@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
-import { route, unwrapDb } from '@/server/http';
+import { HttpError, route, unwrapDb } from '@/server/http';
+import { assertSmtpUrlAllowed, SmtpTargetError } from '@/server/security/net-guard';
 import { requireOrg } from '@/server/security/authz';
 import { enforceRateLimit } from '@/server/security/ratelimit';
 import { secrets } from '@/server/security/secrets-instance';
@@ -21,6 +22,11 @@ export const POST = route(async (req) => {
   const c = await requireOrg(req, 'admin');
   await enforceRateLimit(`org:${c.orgId}:channel_create`, 20, 3600, { failClosed: false });
   const b = Body.parse(await req.json().catch(() => null));
+  // Tenant-supplied host: validated BEFORE anything is created (scheme/port policy + every resolved address must be public). Re-checked at connect time.
+  if (b.kind === 'email' && b.smtp_url) {
+    try { await assertSmtpUrlAllowed(b.smtp_url); }
+    catch (e) { throw e instanceof SmtpTargetError ? new HttpError(422, 'validation_failed', e.code) : e; }
+  }
   const r = (unwrapDb(await c.db.rpc('create_channel_account', { p_org: c.orgId, p_kind: b.kind, p_name: b.name, p_address: b.kind === 'email' ? b.address : null, p_config: b.kind === 'web_chat' ? { allowed_origins: b.allowed_origins, title: b.title, greeting: b.greeting, color: b.color } : { from_name: b.from_name ?? '' } })) as { out_id: string; out_public_key: string | null; out_integration_id: string | null }[])[0];
   if (b.kind === 'web_chat') {
     // public_key identifies the widget (safe to embed); identity_secret stays on the customer's server and is shown once.

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { HttpError, route, unwrapDb } from '@/server/http';
+import { readBodyCapped } from '@/server/http-body';
 import { InboundEmail, toInboundMessage, verifySignature } from '@/server/domain/email';
 import { MimeError, parseMime } from '@/server/domain/mime';
 import { enforceRateLimit, ipKey } from '@/server/security/ratelimit';
@@ -17,9 +18,7 @@ export const POST = route<{ id: string }>(async (req, { params }) => {
   const db = systemClient();
   const { data: ch } = await db.from('channel_accounts').select('org_id,kind,status,integration_id').eq('id', id.data).maybeSingle();
   if (!ch || ch.kind !== 'email' || !ch.integration_id) throw new HttpError(404, 'not_found');
-  if (Number(req.headers.get('content-length') ?? 0) > MAX_BYTES) throw new HttpError(413, 'payload_too_large');
-  const raw = Buffer.from(await req.arrayBuffer());                        // signature is verified over the exact bytes received
-  if (raw.length > MAX_BYTES) throw new HttpError(413, 'payload_too_large');
+  const raw = await readBodyCapped(req, MAX_BYTES);                        // streamed with a hard cap; signature is verified over the exact bytes received
   const secret = await secrets().get(ch.org_id, ch.integration_id, 'webhook_secret');
   if (!secret || !verifySignature(secret, req.headers.get('x-signature-timestamp'), req.headers.get('x-signature'), raw)) throw new HttpError(401, 'unauthorized');
   // Two accepted bodies: a raw RFC 5322 message (Content-Type: message/rfc822; what an MTA/forwarder/Email Worker sends) or the normalised JSON.

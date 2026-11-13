@@ -3,7 +3,7 @@
 # (scripts/auth-stub.mjs). Used when Docker (supabase start) is unavailable. Requires: postgresql@17, postgrest (brew).
 set -euo pipefail
 PGBIN="${PGBIN:-/opt/homebrew/opt/postgresql@17/bin}"
-DIR="$(mktemp -d)"; PGP=54331; PRP=54320; AUTHP=54321; WEBP=3112
+DIR="$(mktemp -d)"; PGP="${PGP:-54331}"; PRP="${PRP:-54320}"; AUTHP="${AUTHP:-54321}"; WEBP="${WEBP:-3112}"   # override to run beside a dev stack
 PIDS=()
 cleanup() { for p in "${PIDS[@]:-}"; do kill "$p" 2>/dev/null || true; done; "$PGBIN/pg_ctl" -D "$DIR/data" -m immediate stop >/dev/null 2>&1 || true; rm -rf "$DIR"; }
 trap cleanup EXIT
@@ -34,6 +34,7 @@ DATABASE_URL="postgres://postgres@127.0.0.1:$PGP/app" PORT=$AUTHP POSTGREST_PORT
 for i in $(seq 1 40); do curl -sf "http://127.0.0.1:$PRP/" >/dev/null && break; sleep 0.5; done
 
 export NEXT_PUBLIC_SUPABASE_URL="http://127.0.0.1:$AUTHP" NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_KEY"
+export SMTP_ALLOW_PRIVATE_HOSTS=1   # TEST ONLY: lets tests point a channel at a local fake SMTP server
 export CRON_SECRET="test-cron-secret-value" RATE_LIMIT_SALT="test-salt" APP_URL="http://127.0.0.1:$WEBP"
 pnpm exec next build >"$DIR/build.log" 2>&1 || { tail -20 "$DIR/build.log"; exit 1; }
 export NEXT_LOG="$DIR/next.log"
