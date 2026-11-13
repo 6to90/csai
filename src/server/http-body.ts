@@ -27,3 +27,18 @@ export async function readBodyCapped(req: Request, maxBytes: number): Promise<Bu
   } finally { reader.releaseLock?.(); }
   return Buffer.concat(chunks, total);
 }
+
+const utf8 = new TextDecoder('utf-8', { fatal: true });
+/** Per-endpoint caps (bytes), sized from each schema's largest legitimate body incl. UTF-8 and JSON escaping. */
+export const JSON_LIMIT = { token: 2 * 1024, tiny: 4 * 1024, small: 8 * 1024, form: 16 * 1024, chatMessage: 64 * 1024, agentMessage: 128 * 1024 } as const;
+
+/**
+ * Streaming JSON body reader for every route. Same contract as the old `req.json().catch(() => null)`: empty or malformed JSON (and invalid UTF-8)
+ * yields `null`, which the caller's schema rejects with 422. The ONLY new behaviour is the size cap: more than `maxBytes` actually received => 413
+ * (reading stops immediately); a malformed Content-Length => 400. The cap is enforced on received bytes, never on the header.
+ */
+export async function readJson(req: Request, maxBytes: number): Promise<unknown> {
+  const raw = await readBodyCapped(req, maxBytes);
+  if (raw.length === 0) return null;
+  try { return JSON.parse(utf8.decode(raw)); } catch { return null; }
+}

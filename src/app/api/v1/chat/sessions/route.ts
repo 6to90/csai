@@ -5,6 +5,7 @@ import { HttpError, route, unwrapDb } from '@/server/http';
 import { enforceRateLimit, ipKey } from '@/server/security/ratelimit';
 import { secrets } from '@/server/security/secrets-instance';
 import { systemClient } from '@/server/security/system-client';
+import { JSON_LIMIT, readJson } from '@/server/http-body';
 
 export const OPTIONS = preflight;
 const Body = z.object({
@@ -16,7 +17,7 @@ const Body = z.object({
 // Public. The channel is found by public_key (an identifier, not a credential); the Origin must be in that channel's allowed_origins (checked in the RPC).
 export const POST = withCors(route(async (req) => {
   await enforceRateLimit(`ip:${ipKey(req)}:chat_session`, 30, 3600, { failClosed: true });
-  const b = Body.parse(await req.json().catch(() => null));
+  const b = Body.parse(await readJson(req, JSON_LIMIT.small));
   const db = systemClient();
   if (b.email) {
     const { data: ch } = await db.from('channel_accounts').select('org_id,integration_id').eq('public_key', b.public_key).eq('kind', 'web_chat').maybeSingle();

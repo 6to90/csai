@@ -2,6 +2,9 @@ import type { NextConfig } from 'next';
 import path from 'node:path';
 const config: NextConfig = {
   poweredByHeader: false,
+  // Build-time constant (inlined into the bundle): only a build made with CSAI_TEST_BUILD=1 can ever honour SMTP_ALLOW_PRIVATE_HOSTS.
+  // A production build leaves it empty, so no runtime environment variable can switch the SSRF guard off there. See src/server/security/net-guard.ts.
+  env: { CSAI_TEST_BUILD: process.env.CSAI_TEST_BUILD === '1' ? '1' : '' },
   async rewrites() { return [{ source: '/widget/v1.js', destination: '/widget.js' }]; },
   outputFileTracingRoot: path.resolve(process.cwd()),
   async headers() {

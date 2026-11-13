@@ -5,6 +5,7 @@ import { assertSmtpUrlAllowed, SmtpTargetError } from '@/server/security/net-gua
 import { requireOrg } from '@/server/security/authz';
 import { enforceRateLimit } from '@/server/security/ratelimit';
 import { secrets } from '@/server/security/secrets-instance';
+import { JSON_LIMIT, readJson } from '@/server/http-body';
 
 export const GET = route(async (req) => {
   const c = await requireOrg(req, 'admin');
@@ -21,7 +22,7 @@ const Body = z.discriminatedUnion('kind', [
 export const POST = route(async (req) => {
   const c = await requireOrg(req, 'admin');
   await enforceRateLimit(`org:${c.orgId}:channel_create`, 20, 3600, { failClosed: false });
-  const b = Body.parse(await req.json().catch(() => null));
+  const b = Body.parse(await readJson(req, JSON_LIMIT.form));
   // Tenant-supplied host: validated BEFORE anything is created (scheme/port policy + every resolved address must be public). Re-checked at connect time.
   if (b.kind === 'email' && b.smtp_url) {
     try { await assertSmtpUrlAllowed(b.smtp_url); }

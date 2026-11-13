@@ -4,7 +4,7 @@
   --color-notion-blue: #0075de; --color-paper: #f6f5f4; --color-ink: #000; --color-graphite: #615d59; --color-stone: #757575;
   --color-sky-tint: #e6f3fe; --color-marigold: #ffb110; --color-coral: #f64932; --color-signal-blue: #097fe8; --color-sky-wash: #62aef0;
   --color-midnight: #02093a; --color-peach: #f6d5b8;
-  --font-sans: 'Inter', 'Pretendard Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+  --font-sans: 'Pretendard Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
   --font-serif: 'Source Serif Pro', 'Noto Serif KR', Georgia, serif;
 }
 :root {

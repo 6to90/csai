@@ -66,7 +66,8 @@ describe('invite-by-link onboarding (new account)', () => {
     const c = await mkCustomer();
     const rs = await Promise.all([1, 2, 3, 4].map((i) => redeem(c.token, TEST_PASSWORD, ip(`2.${i}`))));
     expect(rs.filter((r) => r.status === 201)).toHaveLength(1);
-    expect(rs.map((r) => r.status).sort()).toEqual([201, 409, 409, 409]);
+    // the rest: 409 (account already exists) or 429 (verification codes are limited to 3 mails/hour per link)
+    expect(rs.filter((r) => r.status !== 201).every((r) => [409, 429].includes(r.status))).toBe(true);
     expect((await pool.query('select 1 from auth.users where email=$1', [c.email])).rowCount).toBe(1);
   });
   it('concurrent accepts of one link: exactly one membership', async () => {

@@ -34,7 +34,8 @@ DATABASE_URL="postgres://postgres@127.0.0.1:$PGP/app" PORT=$AUTHP POSTGREST_PORT
 for i in $(seq 1 40); do curl -sf "http://127.0.0.1:$PRP/" >/dev/null && break; sleep 0.5; done
 
 export NEXT_PUBLIC_SUPABASE_URL="http://127.0.0.1:$AUTHP" NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_KEY"
-export SMTP_ALLOW_PRIVATE_HOSTS=1   # TEST ONLY: lets tests point a channel at a local fake SMTP server
+export SECRETS_MASTER_KEY="$(openssl rand -base64 32)"   # throwaway per run; encrypts channel secrets in the local DB only
+export SMTP_ALLOW_PRIVATE_HOSTS=1   # set on purpose on a NON-test build: tests/api/smtp-guard.test.ts proves a production build ignores it
 export CRON_SECRET="test-cron-secret-value" RATE_LIMIT_SALT="test-salt" APP_URL="http://127.0.0.1:$WEBP"
 pnpm exec next build >"$DIR/build.log" 2>&1 || { tail -20 "$DIR/build.log"; exit 1; }
 export NEXT_LOG="$DIR/next.log"

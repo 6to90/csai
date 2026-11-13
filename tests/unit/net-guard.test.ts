@@ -47,14 +47,25 @@ describe('SMTP URL policy', () => {
     vi.spyOn(dns.promises, 'lookup').mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as never);
     await expect(assertSmtpUrlAllowed('smtps://user:pw@smtp.example.com:465')).resolves.toMatchObject({ host: 'smtp.example.com', port: 465 });
   });
-  it('the private-host opt-in is OFF by default (also in production) and only an explicit SMTP_ALLOW_PRIVATE_HOSTS=1 enables it', async () => {
-    const env = process.env as Record<string, string | undefined>; const prev = env.NODE_ENV;
+  it('the private-host exception needs BOTH the test runner/test build AND SMTP_ALLOW_PRIVATE_HOSTS=1; a production build never honours it', async () => {
+    const env = process.env as Record<string, string | undefined>; const prev = { n: env.NODE_ENV, t: env.CSAI_TEST_BUILD };
     try {
-      env.NODE_ENV = 'production';
+      delete env.SMTP_ALLOW_PRIVATE_HOSTS;
+      await expect(assertSmtpUrlAllowed('smtps://127.0.0.1:4465')).rejects.toBeInstanceOf(SmtpTargetError);                 // test runner, variable unset: blocked
+      env.SMTP_ALLOW_PRIVATE_HOSTS = 'true'; await expect(assertSmtpUrlAllowed('smtps://127.0.0.1:4465')).rejects.toBeInstanceOf(SmtpTargetError);   // only the literal "1"
+      env.SMTP_ALLOW_PRIVATE_HOSTS = '1'; await expect(assertSmtpUrlAllowed('smtps://127.0.0.1:4465')).resolves.toBeTruthy();                       // test runner + variable
+      // production runtime (NODE_ENV inlined as "production" in a real bundle) with the variable set and even a runtime CSAI_TEST_BUILD: still blocked
+      env.NODE_ENV = 'production'; env.CSAI_TEST_BUILD = '1';
       await expect(assertSmtpUrlAllowed('smtps://127.0.0.1:465')).rejects.toBeInstanceOf(SmtpTargetError);
-      env.SMTP_ALLOW_PRIVATE_HOSTS = 'true'; await expect(assertSmtpUrlAllowed('smtps://127.0.0.1:465')).rejects.toBeInstanceOf(SmtpTargetError);   // only the literal "1"
-      env.SMTP_ALLOW_PRIVATE_HOSTS = '1'; await expect(assertSmtpUrlAllowed('smtps://127.0.0.1:4465')).resolves.toBeTruthy();
-    } finally { env.NODE_ENV = prev; delete env.SMTP_ALLOW_PRIVATE_HOSTS; }
+    } finally { env.NODE_ENV = prev.n; if (prev.t === undefined) delete env.CSAI_TEST_BUILD; else env.CSAI_TEST_BUILD = prev.t; delete env.SMTP_ALLOW_PRIVATE_HOSTS; }
+  });
+  it('a test BUILD (CSAI_TEST_BUILD=1 at build time) honours it even though NODE_ENV is production', async () => {
+    const env = process.env as Record<string, string | undefined>; const prev = { n: env.NODE_ENV, t: env.CSAI_TEST_BUILD };
+    try {
+      env.NODE_ENV = 'production'; env.CSAI_TEST_BUILD = '1'; env.SMTP_ALLOW_PRIVATE_HOSTS = '1'; vi.resetModules();
+      const fresh = await import('@/server/security/net-guard');                                  // TEST_BUILD is read at module load, like a build-time constant
+      await expect(fresh.assertSmtpUrlAllowed('smtps://127.0.0.1:4465')).resolves.toBeTruthy();
+    } finally { env.NODE_ENV = prev.n; if (prev.t === undefined) delete env.CSAI_TEST_BUILD; else env.CSAI_TEST_BUILD = prev.t; delete env.SMTP_ALLOW_PRIVATE_HOSTS; vi.resetModules(); }
   });
 });
 

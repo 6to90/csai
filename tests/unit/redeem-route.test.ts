@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Attack scenarios against POST /api/v1/invitations/redeem with the DB, GoTrue admin API, mailer and rate limiter replaced by spies.
 const h = vi.hoisted(() => ({
-  preview: [] as unknown[], createUser: vi.fn(), sent: [] as { to: string; code: string }[], mailOk: true,
+  testBuild: false, preview: [] as unknown[], createUser: vi.fn(), sent: [] as { to: string; code: string }[], mailOk: true,
   limiter: vi.fn(async (..._args: unknown[]) => {}),
 }));
 vi.mock('@/server/security/system-client', () => ({
@@ -11,6 +11,7 @@ vi.mock('@/server/security/system-client', () => ({
 vi.mock('@/server/security/ratelimit', () => ({ enforceRateLimit: h.limiter, ipKey: () => '1.2.3.4' }));
 vi.mock('@/server/adapters/mail', () => ({ sendInviteCodeMail: async (to: string, code: string) => { if (h.mailOk) h.sent.push({ to, code }); return h.mailOk; } }));
 vi.mock('@/server/log', () => ({ log: vi.fn() }));
+vi.mock('@/server/test-build', () => ({ get IS_TEST_BUILD() { return h.testBuild; } }));
 
 import { POST } from '@/app/api/v1/invitations/redeem/route';
 import { inviteCode } from '@/server/domain/invite-proof';
@@ -22,7 +23,7 @@ const live = (email = 'invitee@example.com', has = false) => { h.preview = [{ ou
 beforeEach(() => {
   process.env.SECRETS_MASTER_KEY = Buffer.alloc(32, 3).toString('base64');
   vi.stubEnv('NODE_ENV', 'test');
-  h.createUser.mockReset(); h.createUser.mockResolvedValue({ error: null }); h.sent.length = 0; h.mailOk = true; h.limiter.mockClear(); live();
+  h.testBuild = false; h.createUser.mockReset(); h.createUser.mockResolvedValue({ error: null }); h.sent.length = 0; h.mailOk = true; h.limiter.mockClear(); live();
 });
 
 describe('redeem requires proof of mailbox (no email_confirm on token possession alone)', () => {
@@ -78,6 +79,11 @@ describe('redeem requires proof of mailbox (no email_confirm on token possession
     vi.stubEnv('NODE_ENV', 'production'); h.mailOk = false;
     const r = await call({ token: TOKEN, password: PW }); expect([r.status, (await r.json()).error.code]).toEqual([503, 'mail_unavailable']);
     expect(h.createUser).not.toHaveBeenCalled();
+  });
+  it('only a TEST BUILD (harness without a mailbox) may proceed without a mailer; the code is then never in the response', async () => {
+    vi.stubEnv('NODE_ENV', 'production'); h.mailOk = false; h.testBuild = true;
+    const r = await call({ token: TOKEN, password: PW }); const body = await r.json();
+    expect(r.status).toBe(202); expect(JSON.stringify(body)).not.toMatch(/\d{8}/); expect(h.createUser).not.toHaveBeenCalled();
   });
   it('code guessing and mailbox spam are rate-limited per link', async () => {
     await call({ token: TOKEN, password: PW }); await call({ token: TOKEN, password: PW, code: '00000000' });

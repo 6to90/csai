@@ -4,9 +4,11 @@ import { HttpError, route, unwrapDb } from '@/server/http';
 import { sendInviteCodeMail } from '@/server/adapters/mail';
 import { inviteCode, verifyInviteCode } from '@/server/domain/invite-proof';
 import { log } from '@/server/log';
+import { IS_TEST_BUILD } from '@/server/test-build';
 import { maskEmail } from '@/server/security/mask';
 import { enforceRateLimit, ipKey } from '@/server/security/ratelimit';
 import { systemClient } from '@/server/security/system-client';
+import { JSON_LIMIT, readJson } from '@/server/http-body';
 
 // Public. Creates the account for a NEW invitee, but only after PROOF OF MAILBOX: the invitation token alone is not proof (whoever was shown the
 // link holds it). Two calls with the same body shape:
@@ -16,7 +18,7 @@ import { systemClient } from '@/server/security/system-client';
 // confirmed e-mail == invited e-mail, expiry and single use. An address that already has an account never gets its password touched (409).
 const Body = z.object({ token: z.string().min(20).max(200), password: z.string().min(10).max(128), code: z.string().regex(/^\d{8}$/).optional() });
 export const POST = route(async (req) => {
-  const b = Body.parse(await req.json().catch(() => null));
+  const b = Body.parse(await readJson(req, JSON_LIMIT.tiny));
   const th = createHash('sha256').update(b.token).digest('hex').slice(0, 24);
   await Promise.all([
     enforceRateLimit(`ip:${ipKey(req)}:invite_redeem`, 20, 3600, { failClosed: true }),
@@ -37,8 +39,8 @@ export const POST = route(async (req) => {
     const sent = await sendInviteCodeMail(email, code);
     if (!sent) {
       // No way to prove mailbox ownership => no account. Never fall back to trusting the link.
-      if (process.env.NODE_ENV === 'production') throw new HttpError(503, 'mail_unavailable', 'verification e-mail could not be sent');
-      log('warn', 'invite verification code not mailed (no transport; dev only)', { email: maskEmail(email), code });   // dev-only visibility of the code, never in production
+      if (process.env.NODE_ENV === 'production' && !IS_TEST_BUILD) throw new HttpError(503, 'mail_unavailable', 'verification e-mail could not be sent');   // test builds (harness without a mailbox) only
+      log('warn', 'invite verification code not mailed (no transport; dev/test build only)', { email: maskEmail(email), code });   // dev-only visibility of the code, never in production
     }
     return Response.json({ data: { code_sent: true, email_hint: maskEmail(email) } }, { status: 202, headers: { 'cache-control': 'no-store' } });
   }

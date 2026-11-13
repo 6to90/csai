@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { HttpError, route, unwrapDb } from '@/server/http';
 import { requireOrg } from '@/server/security/authz';
 import { systemClient } from '@/server/security/system-client';
+import { JSON_LIMIT, readJson } from '@/server/http-body';
 
 const Id = z.string().uuid();
 export const GET = route<{ id: string }>(async (req, { params }) => {
@@ -28,6 +29,6 @@ export const PATCH = route<{ id: string }>(async (req, { params }) => {
   const id = Id.parse(params.id);
   const { data: own } = await c.db.from('conversations').select('id').eq('id', id).eq('org_id', c.orgId).maybeSingle();   // the header org must own the conversation
   if (!own) throw new HttpError(404, 'not_found');
-  unwrapDb(await c.db.rpc('update_conversation', { p_id: id, p_patch: Patch.parse(await req.json().catch(() => null)) }));
+  unwrapDb(await c.db.rpc('update_conversation', { p_id: id, p_patch: Patch.parse(await readJson(req, JSON_LIMIT.small)) }));
   return { ok: true };
 });

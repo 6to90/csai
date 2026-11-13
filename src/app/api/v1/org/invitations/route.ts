@@ -3,6 +3,7 @@ import { route, unwrapDb } from '@/server/http';
 import { requireOrg } from '@/server/security/authz';
 import { enforceRateLimit } from '@/server/security/ratelimit';
 import { deliverInvitation } from '@/server/invitations';
+import { JSON_LIMIT, readJson } from '@/server/http-body';
 
 const Body = z.object({ email: z.string().trim().toLowerCase().email().max(254), role: z.enum(['admin', 'agent', 'viewer']) });
 
@@ -17,7 +18,7 @@ export const GET = route(async (req) => {
 export const POST = route(async (req) => {
   const c = await requireOrg(req, 'admin');
   await enforceRateLimit(`org:${c.orgId}:invite`, 20, 3600, { failClosed: false });
-  const b = Body.parse(await req.json().catch(() => null));
+  const b = Body.parse(await readJson(req, JSON_LIMIT.tiny));
   const rows = unwrapDb(await c.db.rpc('create_invitation', { p_org: c.orgId, p_email: b.email, p_role: b.role })) as { inv_id: string; inv_token: string; inv_expires_at: string }[];
   const r = rows[0];
   return Response.json({ data: { id: r.inv_id, email: b.email, role: b.role, expires_at: r.inv_expires_at, ...(await deliverInvitation(c.db, c.orgId, b.email, r.inv_token, r.inv_expires_at)) } }, { status: 201, headers: { 'cache-control': 'no-store' } });

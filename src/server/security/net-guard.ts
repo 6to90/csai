@@ -1,6 +1,7 @@
 import 'server-only';
 import dns from 'node:dns';
 import { BlockList, isIP, type LookupFunction } from 'node:net';
+import { IS_TEST_BUILD } from '@/server/test-build';
 
 /**
  * Outbound-connection guard for TENANT-supplied hosts (per-channel SMTP URLs). Prevents SSRF into loopback, private, link-local,
@@ -32,10 +33,13 @@ export function isBlockedAddress(ip: string): boolean {
 }
 
 /**
- * Operator opt-in (default OFF) for self-hosted setups/tests that must reach an internal SMTP relay or a local fake server through a tenant-supplied URL.
- * SECURITY: turning this on lets every org admin make the server connect to internal hosts. Never set it on a multi-tenant deployment.
+ * Test-only exception for a local fake SMTP server. Two conditions, and the FIRST cannot be satisfied by a production build:
+ *  1. the code was built with CSAI_TEST_BUILD=1 (a build-time constant inlined by next.config.ts) or runs under the unit-test runner (NODE_ENV=test; in a
+ *     Next production bundle NODE_ENV is itself inlined as "production"), and
+ *  2. SMTP_ALLOW_PRIVATE_HOSTS=1 at runtime.
+ * So setting the runtime variable on a production deployment does nothing. Never build with CSAI_TEST_BUILD=1 for real use.
  */
-export const allowPrivateSmtp = () => process.env.SMTP_ALLOW_PRIVATE_HOSTS === '1';
+export const allowPrivateSmtp = () => process.env.SMTP_ALLOW_PRIVATE_HOSTS === '1' && (IS_TEST_BUILD || process.env.NODE_ENV === 'test');
 
 const ALLOWED_PORTS = new Set([25, 465, 587, 2525]);
 const DEFAULT_PORT: Record<string, number> = { 'smtps:': 465, 'smtp+starttls:': 587, 'smtp:': 25 };
