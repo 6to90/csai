@@ -14,7 +14,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
   return (
     <>
       <PageHeader title="팀 관리" desc="멤버를 초대하고 역할을 확인합니다. 소유자·관리자 계정은 2단계 인증(TOTP)이 필요합니다." />
-      <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <OrgAdmin part="team" orgId={id} orgName={org?.name ?? ''} role={me.role} meId={me.user_id} members={members} invitations={(invs ?? []) as Invitation[]} />
         <Section title="역할 설명" className="h-fit"><dl className="space-y-3 p-5">{ROLE_HELP.map(([r, d]) => <div key={r}><dt className="font-medium">{r}</dt><dd className="text-sm text-[#615d59]">{d}</dd></div>)}</dl></Section>
       </div>

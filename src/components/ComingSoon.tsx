@@ -1,14 +1,25 @@
 import { PageHeader } from '@/components/PageHeader';
 import { LinkButton, Pill } from '@/components/ui/controls';
+import { Section } from '@/components/ui/data';
 
-/** Honest placeholder for modules with no backend yet: states what is NOT built, what is planned, and what already works nearby. */
-export function ComingSoon({ title, desc, planned, needs, link }: { title: string; desc: string; planned: string[]; needs: string; link: { href: string; label: string } }) {
+/** Honest placeholder for modules that are not built yet: says so, lists what is planned (user-facing wording only), and what works today. */
+export function ComingSoon({ title, desc, planned, now, link }: { title: string; desc: string; planned: string[]; now: string; link: { href: string; label: string } }) {
   return (
     <>
-      <PageHeader title={title} desc={desc} action={<Pill>개발 중 · 아직 사용할 수 없음</Pill>} />
-      <div className="grid gap-4 md:grid-cols-2">
-        <section className="card p-6"><h2 className="text-[22px] font-bold tracking-tight">계획된 범위</h2><ul className="mt-3 list-disc space-y-1 pl-5 text-[#615d59]">{planned.map((p) => <li key={p}>{p}</li>)}</ul></section>
-        <section className="rounded-xl bg-[#ffb110] p-6"><h2 className="text-[22px] font-bold tracking-tight">현재 상태</h2><p className="mt-3 text-black/80">{needs}</p><div className="mt-4"><LinkButton href={link.href} variant="secondary" className="bg-white/60">{link.label}</LinkButton></div></section>
+      <PageHeader title={title} desc={desc} action={<Pill color="bg-[#e6f3fe] text-[#004a8f]">개발 중 · 아직 사용할 수 없음</Pill>} />
+      <div className="grid max-w-3xl gap-4">
+        <Section title="예정된 기능" desc="출시 순서와 시기는 확정되지 않았습니다.">
+          <ul className="divide-y divide-[var(--border)]">
+            {planned.map((p) => (
+              <li key={p} className="flex items-center justify-between gap-3 px-5 py-3 text-sm"><span>{p}</span><span className="shrink-0 rounded-full bg-black/5 px-2 py-0.5 text-xs text-[#615d59]">예정</span></li>))}
+          </ul>
+        </Section>
+        <Section title="지금 할 수 있는 일">
+          <div className="flex flex-wrap items-center justify-between gap-4 p-5">
+            <p className="max-w-xl text-sm text-[#615d59]">{now}</p>
+            <LinkButton href={link.href} variant="ghost" className="min-h-9">{link.label}</LinkButton>
+          </div>
+        </Section>
       </div>
     </>
   );

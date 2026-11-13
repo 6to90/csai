@@ -84,7 +84,7 @@ export function OrgAdmin({ part, orgId, orgName, role, meId, members, invitation
       </Section>) : null;
   }
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       {status}
       <Modal open={!!target} onClose={() => setTarget(null)} title="멤버를 제거할까요?" confirmLabel="제거" busy={busy} onConfirm={() => target && remove(target)}>
         <strong className="break-all font-medium text-black">{target?.email}</strong>이(가) 이 조직에 더 이상 접근할 수 없게 됩니다.
@@ -97,7 +97,7 @@ export function OrgAdmin({ part, orgId, orgName, role, meId, members, invitation
       </Section>
       {admin && (<>
         <Section title="멤버 초대">
-          <form onSubmit={onInvite} className="grid gap-4 p-5 sm:grid-cols-[1fr_160px_auto] sm:items-end">
+          <form onSubmit={onInvite} className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_160px_auto] lg:items-end">
             <Field id="inv-email" name="email" type="email" label="이메일" required maxLength={254} />
             <div className="flex flex-col gap-1">
               <label htmlFor="inv-role" className="text-sm font-medium text-[var(--text-secondary)]">역할</label>
