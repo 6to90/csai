@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createCookieClient } from '@/lib/supabase/server';
 import { CreateOrg } from './CreateOrg';
@@ -16,10 +17,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const role = (id: string) => ms?.find((m) => m.org_id === id)?.role ?? 'viewer';
   return (
     <main id="main" className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-10 md:py-16">
-      <div className="flex items-start justify-between gap-4">
-        <div><h1 className="display text-[40px]">조직 선택</h1><p className="mt-2 text-base text-[#615d59]">작업할 조직을 고르거나 새로 만드세요.</p></div>
+      <header className="flex items-center justify-between gap-4">
+        <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight"><span aria-hidden className="grid size-7 place-items-center rounded-lg bg-[#0075de] text-sm text-white">C</span>CSAI</Link>
         <SignOut />
-      </div>
+      </header>
+      <div><h1 className="display text-[32px]">조직 선택</h1><p className="mt-2 text-base text-[#615d59]">작업할 조직을 고르거나 새로 만드세요.</p></div>
       {orgs?.length ? (
         <ul className="grid gap-3 sm:grid-cols-2">
           {orgs.map((o) => (

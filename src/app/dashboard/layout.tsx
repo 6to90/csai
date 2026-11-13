@@ -19,7 +19,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <>
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-white focus:p-2">본문으로 건너뛰기</a>
-      {gated ? <main id="main" tabIndex={-1} className="mx-auto max-w-5xl p-4 outline-none md:p-8"><MfaGate hasFactor={aal?.nextLevel === 'aal2'} /></main> : children}
+      {gated ? <MfaGate hasFactor={aal?.nextLevel === 'aal2'} /> : children}   {/* MfaGate renders its own <main id="main"> inside the auth frame */}
     </>
   );
 }
