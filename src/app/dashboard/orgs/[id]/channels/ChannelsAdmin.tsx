@@ -2,7 +2,7 @@
 import { useState, useSyncExternalStore, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Field } from '@/components/ui/controls';
-import { EmptyState, StatusPill } from '@/components/ui/data';
+import { EmptyState, Section, StatusPill } from '@/components/ui/data';
 
 export interface Channel { id: string; kind: string; name: string; address: string | null; status: string; public_key: string | null; config: { allowed_origins?: string[]; title?: string; greeting?: string; color?: string; from_name?: string } }
 const noop = () => () => {};
@@ -87,8 +87,8 @@ export function ChannelsAdmin({ orgId, channels }: { orgId: string; channels: Ch
           {!channels.length && <li className="card"><EmptyState title="연결된 채널이 없습니다" desc="오른쪽 양식에서 이메일 또는 웹 채팅 위젯을 추가하세요." /></li>}
         </ul>
       </div>
-      <form onSubmit={create} className="card flex flex-col gap-4 p-5">
-        <h2 className="text-base font-semibold">채널 추가</h2>
+      <Section title="채널 추가" desc="이메일 주소 또는 웹 채팅 위젯을 연결합니다." className="xl:sticky xl:top-16">
+      <form onSubmit={create} className="flex flex-col gap-4 p-5">
         <div className="flex flex-col gap-1"><label htmlFor="kind" className="text-[var(--text-secondary)]">종류</label>
           <select id="kind" value={kind} onChange={(e) => setKind(e.target.value as 'email' | 'web_chat')} className="min-h-11 rounded-lg border border-[var(--border-strong)] bg-white px-3 text-[var(--text-primary)]"><option value="email">이메일</option><option value="web_chat">웹 채팅 위젯</option></select></div>
         <Field id="ch-name" name="name" label="이름" required maxLength={120} />
@@ -104,6 +104,7 @@ export function ChannelsAdmin({ orgId, channels }: { orgId: string; channels: Ch
         </>)}
         <Button type="submit" disabled={busy}>{busy ? '추가 중…' : '채널 추가'}</Button>
       </form>
+      </Section>
     </div>
   );
 }

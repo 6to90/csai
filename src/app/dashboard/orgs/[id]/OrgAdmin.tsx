@@ -62,9 +62,20 @@ export function OrgAdmin({ part, orgId, orgName, role, meId, members, invitation
       </select>) : <span className="text-black">{ROLE[m.role]}</span>) },
     ...(admin ? [{ key: 'act', header: '관리', align: 'right' as const, srOnlyHeader: true, cell: (m: Member) => (isLocked(m) ? null : <Button variant="secondary" className="min-h-9" disabled={busy} onClick={() => setTarget(m)}>제거</Button>) }] : []),
   ];
+  const invCols: Col<Invitation>[] = [
+    { key: 'email', header: '이메일', cell: (i) => <span className="break-all">{i.email}</span> },
+    { key: 'role', header: '역할', cell: (i) => <span className="text-black">{ROLE[i.role]}</span> },
+    { key: 'status', header: '상태', cell: (i) => <StatusPill status={i.status} label={STATUS[i.status] ?? i.status} /> },
+    { key: 'exp', header: '만료', cell: (i) => (i.status === 'pending' ? `${i.expires_at.slice(0, 10)}까지` : '—') },
+    { key: 'act', header: '관리', align: 'right', srOnlyHeader: true, cell: (i) => (
+      <span className="inline-flex flex-wrap justify-end gap-2">
+        {(i.status === 'pending' || i.status === 'expired') && <Button variant="secondary" className="min-h-9" disabled={busy} onClick={async () => afterInvite(await call('POST', `/api/v1/org/invitations/${i.id}/resend`), '재발송했습니다.')}>재발송</Button>}
+        {i.status === 'pending' && <Button variant="secondary" className="min-h-9" disabled={busy} onClick={() => call('POST', `/api/v1/org/invitations/${i.id}/revoke`)}>취소</Button>}
+      </span>) },
+  ];
   if (part === 'settings') {
     return admin ? (
-      <Section title="조직 이름">
+      <Section title="조직 이름" desc="대시보드에 표시되는 조직 이름입니다.">
         <form onSubmit={onRename} className="flex max-w-md flex-col gap-4 p-5">
           <Field id="org-name" name="name" label="조직 이름" defaultValue={orgName} required maxLength={120} />
           {status}
@@ -98,17 +109,10 @@ export function OrgAdmin({ part, orgId, orgName, role, meId, members, invitation
           </form>
         </Section>
         <Section title="보낸 초대">
-          {invitations.length ? (
-            <ul className="divide-y divide-[var(--border)]">
-              {invitations.map((i) => (
-                <li key={i.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
-                  <div className="min-w-0"><div className="break-all font-medium">{i.email}</div><div className="text-xs text-[#615d59]">{ROLE[i.role]}{i.status === 'pending' ? ` · ${i.expires_at.slice(0, 10)}까지` : ''}</div></div>
-                  <div className="flex items-center gap-2"><StatusPill status={i.status} label={STATUS[i.status] ?? i.status} />
-                    {(i.status === 'pending' || i.status === 'expired') && <Button variant="secondary" className="min-h-9" disabled={busy} onClick={async () => afterInvite(await call('POST', `/api/v1/org/invitations/${i.id}/resend`), '재발송했습니다.')}>재발송</Button>}
-                    {i.status === 'pending' && <Button variant="secondary" className="min-h-9" disabled={busy} onClick={() => call('POST', `/api/v1/org/invitations/${i.id}/revoke`)}>취소</Button>}
-                  </div>
-                </li>))}
-            </ul>) : <EmptyState title="보낸 초대가 없습니다" desc="이메일과 역할을 입력해 팀원을 초대하세요." />}
+          <DataTable
+            caption="보낸 초대 목록" rows={invitations} rowKey={(i) => i.id} columns={invCols}
+            empty={<EmptyState title="보낸 초대가 없습니다" desc="이메일과 역할을 입력해 팀원을 초대하세요." />}
+          />
         </Section>
       </>)}
     </div>

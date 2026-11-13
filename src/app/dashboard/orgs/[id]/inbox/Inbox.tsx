@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { createBrowser } from '@/lib/supabase/browser';
 import { Button } from '@/components/ui/controls';
-import { StatusPill } from '@/components/ui/data';
+import { Skeleton, StatusPill } from '@/components/ui/data';
 
 interface Conv { id: string; status: string; priority: string; assignee_id: string | null; subject: string | null; last_message_at: string | null; last_message_preview: string | null; unread_count: number; customer: { display_name: string | null; email: string | null } | null }
 interface Msg { id: string; direction: string; body: string; status: string; error_code: string | null; created_at: string; attachments?: { id: string; filename: string; size: number }[] }
@@ -85,7 +85,7 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
   return (
     <div className="flex flex-col gap-3">
       <div role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-[#615d59]"><span aria-hidden className={`size-2 rounded-full ${liveDot}`} />{live === 'live' ? '실시간 연결됨' : live === 'down' ? '연결이 끊겼습니다. 재연결 중이며 30초마다 새로고침합니다.' : '연결 중…'}</div>
-      <div className="grid gap-3 md:h-[calc(100dvh-10rem)] md:min-h-[520px] md:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_260px]">
+      <div className={`grid gap-3 md:h-[calc(100dvh-10rem)] md:min-h-[520px] md:grid-cols-[340px_minmax(0,1fr)] ${sel_ ? 'xl:grid-cols-[340px_minmax(0,1fr)_260px]' : ''}`}>
         <section aria-label="대화 목록" className={`${sel_ ? 'hidden md:flex' : 'flex'} min-h-0 flex-col gap-3`}>
           <div className="card flex flex-col gap-2 p-3">
             <label className="sr-only" htmlFor="q">검색</label>
@@ -114,7 +114,9 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
         </section>
 
         <section aria-label="대화 상세" className={`${sel_ ? 'flex' : 'hidden md:flex'} card min-h-0 min-w-0 flex-col gap-3 p-4`}>
-          {!detail ? <p className="m-auto text-sm text-[var(--text-secondary)]" role={sel_ ? 'status' : undefined}>{sel_ ? '불러오는 중…' : '왼쪽 목록에서 대화를 선택하세요.'}</p> : (<>
+          {!detail ? (sel_
+            ? <p className="m-auto text-sm text-[var(--text-secondary)]" role="status">불러오는 중…</p>
+            : <div className="m-auto max-w-xs text-center"><p className="text-base font-semibold">대화를 선택하세요</p><p className="mt-1 text-sm text-[var(--text-secondary)]">목록에서 문의를 고르면 메시지와 답장 입력이 여기에 표시됩니다.</p></div>) : (<>
             <div className="flex items-center gap-2"><Button variant="secondary" className="md:hidden" onClick={() => setSel(null)}>← 목록</Button><h2 className="truncate text-base font-semibold">{detail.subject ?? '(제목 없음)'}</h2></div>
             <div className="flex flex-wrap gap-2">
               <select aria-label="상태 변경" disabled={!canAct} value={detail.status} onChange={(e) => patch({ status: e.target.value })} className={sel}>{Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
@@ -152,13 +154,15 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
           </>)}
         </section>
 
-        {detail && (
-          <aside aria-label="고객 정보" className="card hidden flex-col gap-2 p-4 xl:flex">
+        {sel_ && (
+          <aside aria-label="고객 정보" className="card hidden min-h-0 flex-col gap-2 p-4 xl:flex">
             <h2 className="text-base font-semibold">고객</h2>
-            <p className="break-all">{detail.customer?.display_name ?? '-'}</p>
-            <p className="break-all text-[var(--text-secondary)]">{detail.customer?.email ?? '이메일 없음'}</p>
-            <p className="text-[var(--text-secondary)]">채널: {detail.channel?.name} ({detail.channel?.kind === 'email' ? '이메일' : '웹 채팅'})</p>
-            <p className="text-[var(--text-secondary)]">담당: {assigneeLabel(detail.assignee_id)}</p>
+            {detail ? (<>
+              <p className="break-all">{detail.customer?.display_name ?? '-'}</p>
+              <p className="break-all text-[var(--text-secondary)]">{detail.customer?.email ?? '이메일 없음'}</p>
+              <p className="text-[var(--text-secondary)]">채널: {detail.channel?.name} ({detail.channel?.kind === 'email' ? '이메일' : '웹 채팅'})</p>
+              <p className="text-[var(--text-secondary)]">담당: {assigneeLabel(detail.assignee_id)}</p>
+            </>) : <><Skeleton className="h-5 w-3/4" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-2/3" /></>}
           </aside>)}
       </div>
     </div>

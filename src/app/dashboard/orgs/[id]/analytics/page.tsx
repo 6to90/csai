@@ -32,7 +32,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ id: 
       <PageHeader title="분석" desc="최근 30일 대화 데이터를 실시간으로 집계합니다. AI 처리율·비용 지표는 AI 에이전트 출시 후 추가됩니다." />
       <section aria-label="핵심 지표" className="grid gap-3 sm:grid-cols-3">{kpi.map(([l, v], i) => <StatCard key={l} label={l} value={v} hot={i === 0} />)}</section>
       <Section title="일별 신규 대화" desc="최근 14일" className="mt-4">
-        <svg role="img" aria-label={`일별 신규 대화: ${days.map((d) => `${d.label} ${d.n}건`).join(', ')}`} viewBox={`0 0 ${DAYS * 40} 150`} className="w-full p-5">
+        <svg role="img" aria-label={`일별 신규 대화: ${days.map((d) => `${d.label} ${d.n}건`).join(', ')}`} viewBox={`0 0 ${DAYS * 40} 150`} className="h-40 w-full p-5 md:h-52">
           {days.map((d, i) => { const h = Math.round((d.n / max) * 120); return (<g key={d.key}><rect x={i * 40 + 6} y={125 - h} width="28" height={h} rx="3" fill="#0075de" /><text x={i * 40 + 20} y="145" textAnchor="middle" fontSize="11" fill="#615d59">{d.label.split('/')[1]}</text></g>); })}
         </svg>
       </Section>
