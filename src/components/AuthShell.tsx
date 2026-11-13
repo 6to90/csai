@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { Marks } from './Marks';
 
 // Shared frame for login / signup / invite: form card on the paper canvas, a flat midnight panel on desktop (DESIGN.md: no gradients).
 export function AuthShell({ title, sub, children, footer }: { title: string; sub?: string; children: ReactNode; footer?: ReactNode }) {
@@ -15,7 +16,7 @@ export function AuthShell({ title, sub, children, footer }: { title: string; sub
       </main>
       <aside aria-hidden className="hidden flex-col justify-between bg-[#02093a] p-12 text-white md:flex">
         <span className="w-fit rounded-full bg-[#ffb110] px-3 py-1 text-xs font-medium text-black">AI Customer Operations</span>
-        <p className="display text-[40px]">모든 문의를 한 곳에서,<br />위험한 행동은 사람이 승인합니다.</p>
+        <div><Marks small className="mb-6" /><p className="display text-[40px]">모든 문의를 한 곳에서,<br />위험한 행동은 사람이 승인합니다.</p></div>
         <ul className="space-y-2 text-white/70"><li>· 이메일·웹 채팅 통합 Inbox</li><li>· 초대 기반 팀 관리</li><li>· 관리자 2단계 인증(MFA)</li></ul>
       </aside>
     </div>
