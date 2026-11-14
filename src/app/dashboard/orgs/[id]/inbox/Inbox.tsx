@@ -14,7 +14,8 @@ const FAIL: Record<string, string> = {
   uncertain_delivery: '발송 결과가 불확실합니다. 고객이 이미 받았을 수 있어요. 확인 후 필요할 때만 다시 보내세요.',
   auth_failed: 'SMTP 인증에 실패했습니다. 채널의 SMTP 설정을 확인하세요.', tls_cert_invalid: 'SMTP 서버의 TLS 인증서를 신뢰할 수 없습니다.', no_transport: '발송 설정(SMTP)이 없습니다.',
   smtp_550: '받는 주소가 거부되었습니다(550).', no_recipient: '받는 이메일 주소가 없습니다.' };
-const sel = 'min-h-9 rounded-lg border border-[var(--border-strong)] bg-white px-2 text-sm text-[var(--text-primary)]';
+const PRIO_DOT: Record<string, string> = { low: 'bg-[#a39e98]', normal: 'bg-[#d9d6d2]', high: 'bg-[#dd5b00]', urgent: 'bg-[#c4260f]' };
+const sel = 'min-h-9 rounded-md border border-[var(--border-strong)] bg-white px-2 text-sm text-[var(--text-primary)]';
 
 export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: string; canAct: boolean; members: { id: string; email: string }[] }) {
   const [convs, setConvs] = useState<Conv[]>([]);
@@ -84,6 +85,19 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
   const name = (c: Conv) => c.customer?.display_name || c.customer?.email || '알 수 없음';
   const assigneeLabel = (id: string | null) => !id ? '미배정' : id === meId ? '나' : members.find((m) => m.id === id)?.email ?? '다른 담당자';
 
+  const related = detail?.customer?.email ? convs.filter((c) => c.id !== detail.id && c.customer?.email === detail.customer?.email) : [];
+  const customerBody = detail ? (<>
+              <dl className="grid gap-2 text-sm">
+                <div><dt className="text-xs text-[var(--text-muted)]">이름</dt><dd className="break-all">{detail.customer?.display_name ?? '-'}</dd></div>
+                <div><dt className="text-xs text-[var(--text-muted)]">이메일</dt><dd className="break-all">{detail.customer?.email ?? '없음'}</dd></div>
+                <div><dt className="text-xs text-[var(--text-muted)]">전화</dt><dd>{detail.customer?.phone ?? '없음'}</dd></div>
+                <div><dt className="text-xs text-[var(--text-muted)]">채널</dt><dd>{detail.channel?.name} ({detail.channel?.kind === 'email' ? '이메일' : '웹 채팅'})</dd></div>
+                <div><dt className="text-xs text-[var(--text-muted)]">담당</dt><dd>{assigneeLabel(detail.assignee_id)}</dd></div>
+                {detail.customer?.tags?.length ? <div><dt className="text-xs text-[var(--text-muted)]">태그</dt><dd className="flex flex-wrap gap-1">{detail.customer.tags.map((t) => <span key={t} className="rounded bg-black/5 px-1.5 text-xs">{t}</span>)}</dd></div> : null}
+              </dl>
+              {related.length > 0 && <div><h3 className="text-xs font-semibold text-[var(--text-secondary)]">이 고객의 다른 대화 (불러온 목록 기준)</h3><ul className="mt-1 grid gap-1">{related.slice(0, 5).map((c) => <li key={c.id}><button type="button" className="w-full truncate text-left text-sm text-[#0075de] underline" onClick={() => setSel(c.id)}>{c.subject ?? '(제목 없음)'}</button></li>)}</ul></div>}
+              <div className="rounded-md border border-dashed border-[var(--border-strong)] p-2 text-sm text-[var(--text-muted)]"><span className="font-medium text-[var(--text-secondary)]">주문 정보</span> <span className="ml-1 rounded bg-black/5 px-1.5 text-xs">개발 중</span><p className="mt-1 text-xs">외부 주문 시스템 연동 후 표시됩니다.</p></div>
+  </>) : null;
   const liveDot = live === 'live' ? 'bg-[#1a7f37]' : live === 'down' ? 'bg-[#a65b00]' : 'bg-[#757575]';
   const filtered = !!(f.status || f.assignee || f.q.trim() || f.unread);
   return (
@@ -91,9 +105,9 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
       <div role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-[#615d59]"><span aria-hidden className={`size-2 rounded-full ${liveDot}`} />{live === 'live' ? '실시간 연결됨' : live === 'down' ? '연결이 끊겼습니다. 재연결 중이며 30초마다 새로고침합니다.' : '연결 중…'}</div>
       <div className={`grid gap-3 lg:h-[calc(100dvh-10rem)] lg:min-h-[520px] lg:grid-cols-[340px_minmax(0,1fr)] ${sel_ ? 'xl:grid-cols-[340px_minmax(0,1fr)_260px]' : ''}`}>
         <section aria-label="대화 목록" className={`${sel_ ? 'hidden lg:flex' : 'flex'} min-h-0 flex-col gap-3`}>
-          <div className="card flex flex-col gap-2 p-3">
+          <div className="card flex flex-col gap-2 rounded-md p-2.5">
             <label className="sr-only" htmlFor="q">검색</label>
-            <input id="q" type="search" placeholder="이름·이메일·제목 검색" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} className="min-h-10 rounded-lg border border-[var(--border-strong)] bg-white px-3 text-sm placeholder:text-[var(--text-muted)]" />
+            <input id="q" type="search" placeholder="이름·이메일·제목 검색" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} className="min-h-9 rounded-md border border-[var(--border-strong)] bg-white px-3 text-sm placeholder:text-[var(--text-muted)]" />
             <div className="flex flex-wrap items-center gap-2">
               <select aria-label="상태 필터" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} className={sel}><option value="">모든 상태</option>{Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
               <select aria-label="담당자 필터" value={f.assignee} onChange={(e) => setF({ ...f, assignee: e.target.value })} className={sel}><option value="">모든 담당자</option><option value="me">내 대화</option><option value="unassigned">미배정</option></select>
@@ -101,14 +115,17 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
               {filtered && <button type="button" className="text-sm text-[#0075de] underline" onClick={() => setF({ status: '', assignee: '', q: '', unread: false })}>초기화</button>}
             </div>
           </div>
-          <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+          <ul className="card flex min-h-0 flex-1 flex-col divide-y divide-[var(--border)] overflow-y-auto rounded-md p-0">
             {convs.map((c) => (
-              <li key={c.id}>
-                <button type="button" onClick={() => setSel(c.id)} aria-current={c.id === sel_ ? 'true' : undefined} className={`w-full rounded-xl border p-3 text-left ${c.id === sel_ ? 'border-[#0075de] bg-[#e6f3fe]' : 'border-[var(--border)] bg-white hover:bg-black/[.03]'}`}>
-                  <div className="flex items-center justify-between gap-2"><span className={`truncate text-sm ${c.unread_count ? 'font-semibold' : 'font-medium'}`}>{name(c)}</span><span className="flex shrink-0 items-center gap-1.5"><span className="text-xs text-[#757575]">{c.last_message_at ? new Date(c.last_message_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }) : ''}</span>{c.unread_count > 0 && <span className="rounded-full bg-[#0075de] px-2 text-xs text-white" aria-label={`안 읽은 메시지 ${c.unread_count}개`}>{c.unread_count}</span>}</span></div>
-                  <div className="truncate text-sm">{c.subject ?? '(제목 없음)'}</div>
-                  <div className="truncate text-xs text-[var(--text-muted)]">{c.last_message_preview}</div>
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5"><StatusPill status={c.status} label={STATUS[c.status] ?? c.status} />{c.priority !== 'normal' && <span className="rounded-full bg-black/5 px-2 py-0.5 text-xs">{PRIORITY[c.priority]}</span>}<span className="text-xs text-[#615d59]">{assigneeLabel(c.assignee_id)}</span></div>
+              <li key={c.id} className="list-none">
+                <button type="button" onClick={() => setSel(c.id)} aria-current={c.id === sel_ ? 'true' : undefined} className={`flex w-full gap-2 border-l-2 px-3 py-2 text-left ${c.id === sel_ ? 'border-l-[#0075de] bg-[#e6f3fe]' : 'border-l-transparent bg-white hover:bg-[#f6f5f4]'}`}>
+                  <span aria-hidden className={`mt-1.5 size-2 shrink-0 rounded-full ${PRIO_DOT[c.priority] ?? PRIO_DOT.normal}`} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center justify-between gap-2"><span className={`truncate text-sm ${c.unread_count ? 'font-semibold' : 'font-medium'}`}>{name(c)}</span><span className="flex shrink-0 items-center gap-1.5"><span className="text-xs text-[#757575]">{c.last_message_at ? new Date(c.last_message_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }) : ''}</span>{c.unread_count > 0 && <span className="rounded bg-[#0075de] px-1.5 text-xs text-white" aria-label={`안 읽은 메시지 ${c.unread_count}개`}>{c.unread_count}</span>}</span></span>
+                    <span className={`block truncate text-sm ${c.unread_count ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>{c.subject ?? '(제목 없음)'}</span>
+                    <span className="block truncate text-xs text-[var(--text-muted)]">{c.last_message_preview}</span>
+                    <span className="mt-1 flex flex-wrap items-center gap-1.5"><StatusPill status={c.status} label={STATUS[c.status] ?? c.status} />{c.priority !== 'normal' && <span className="rounded bg-black/5 px-1.5 text-xs">{PRIORITY[c.priority]}</span>}<span className="text-xs text-[#615d59]">{assigneeLabel(c.assignee_id)}</span></span>
+                  </span>
                 </button>
               </li>))}
             {list === 'loading' && <li className="p-4 text-sm text-[var(--text-secondary)]" role="status">불러오는 중…</li>}
@@ -117,7 +134,7 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
           </ul>
         </section>
 
-        <section aria-label="대화 상세" className={`${sel_ ? 'flex' : 'hidden lg:flex'} card min-h-0 min-w-0 flex-col gap-3 p-4`}>
+        <section aria-label="대화 상세" className={`${sel_ ? 'flex' : 'hidden lg:flex'} card min-h-0 min-w-0 flex-col gap-3 rounded-md p-4`}>
           {!detail ? (sel_
             ? (<div className="flex flex-1 flex-col gap-3">
                 <Button variant="secondary" className="w-fit lg:hidden" onClick={() => setSel(null)}>← 목록</Button>
@@ -126,8 +143,8 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
                   : <p className="m-auto text-sm text-[var(--text-secondary)]" role="status">불러오는 중…</p>}
               </div>)
             : <div className="m-auto max-w-xs text-center"><p className="text-base font-semibold">대화를 선택하세요</p><p className="mt-1 text-sm text-[var(--text-secondary)]">목록에서 문의를 고르면 메시지와 답장 입력이 여기에 표시됩니다.</p></div>) : (<>
-            <div className="flex items-center gap-2"><Button variant="secondary" className="lg:hidden" onClick={() => setSel(null)}>← 목록</Button><h2 className="truncate text-base font-semibold">{detail.subject ?? '(제목 없음)'}</h2></div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-2"><Button variant="secondary" className="lg:hidden" onClick={() => setSel(null)}>← 목록</Button><div className="min-w-0"><h2 className="truncate text-base font-semibold">{detail.subject ?? '(제목 없음)'}</h2><p className="truncate text-xs text-[var(--text-secondary)]">{name(detail)} · {detail.channel?.kind === 'email' ? '이메일' : '웹 채팅'}{detail.channel?.name ? ` · ${detail.channel.name}` : ''}</p></div></div>
+            <div className="flex flex-wrap gap-2 border-y border-[var(--border)] py-2">
               <select aria-label="상태 변경" disabled={!canAct} value={detail.status} onChange={(e) => patch({ status: e.target.value })} className={sel}>{Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
               <select aria-label="우선순위 변경" disabled={!canAct} value={detail.priority} onChange={(e) => patch({ priority: e.target.value })} className={sel}>{Object.entries(PRIORITY).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
               <select aria-label="담당자 변경" disabled={!canAct} value={detail.assignee_id ?? ''} onChange={(e) => patch({ assignee_id: e.target.value || null })} className={sel}><option value="">미배정</option>{members.map((m) => <option key={m.id} value={m.id}>{m.id === meId ? `나 (${m.email})` : m.email}</option>)}</select>
@@ -141,9 +158,10 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
                       <Button variant="secondary" onClick={() => setConfirmEnd(false)}>취소</Button></span>
                   : <Button variant="secondary" onClick={() => setConfirmEnd(true)}>채팅 종료</Button>)}
               </div>)}
+            <details className="rounded-md border border-[var(--border)] xl:hidden"><summary className="min-h-11 cursor-pointer px-3 py-2.5 text-sm font-medium">고객 정보</summary><div className="grid gap-3 px-3 pb-3">{customerBody}</div></details>
             <ol aria-label="메시지" className="flex max-h-[60dvh] min-h-0 flex-1 flex-col gap-2 overflow-y-auto lg:max-h-none">
               {detail.messages.map((m) => (
-                <li key={m.id} className={`max-w-[92%] rounded-xl border p-3 ${m.direction === 'inbound' ? 'self-start border-transparent bg-[#f6f5f4]' : m.direction === 'internal' ? 'self-end border-[#ffb110] bg-[#fff4d6]' : 'self-end border-transparent bg-[#e6f3fe]'}`}>
+                <li key={m.id} className={`max-w-[92%] list-none rounded-md border p-2.5 ${m.direction === 'inbound' ? 'self-start border-transparent bg-[#f6f5f4]' : m.direction === 'internal' ? 'self-end border-[#ffb110] bg-[#fff4d6]' : 'self-end border-transparent bg-[#e6f3fe]'}`}>
                   <div className="text-xs text-[var(--text-secondary)]">{m.direction === 'inbound' ? name(detail) : m.direction === 'internal' ? '내부 메모 (고객에게 보이지 않음)' : '상담원'} · {new Date(m.created_at).toLocaleString('ko-KR')}</div>
                   <p className="whitespace-pre-wrap break-words">{m.body}</p>
                   {m.attachments?.length ? <p className="text-sm text-[var(--text-secondary)]">첨부: {m.attachments.map((a) => a.filename).join(', ')}</p> : null}
@@ -153,9 +171,11 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
             {canAct && (
               <form onSubmit={send} className="flex flex-col gap-2">
                 <label htmlFor="body" className="text-[var(--text-secondary)]">{internal ? '내부 메모' : '답장'}</label>
-                <textarea id="body" name="body" required maxLength={20000} rows={3} onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') e.currentTarget.form?.requestSubmit(); }} className="rounded-lg border border-[var(--border-strong)] bg-white p-3 text-[var(--text-primary)]" />
+                <textarea id="body" name="body" required maxLength={20000} rows={3} onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') e.currentTarget.form?.requestSubmit(); }} className="rounded-md border border-[var(--border-strong)] bg-white p-3 text-[var(--text-primary)]" />
+                <p className="text-xs text-[var(--text-muted)]">Ctrl/⌘ + Enter로 전송</p>
                 <div className="flex flex-wrap items-center gap-3">
                   <label className="flex min-h-11 items-center gap-2 text-[var(--text-secondary)]"><input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} />내부 메모로 저장</label>
+                  <button type="button" disabled title="AI 답변 제안은 개발 중입니다" className="min-h-11 rounded-md border border-dashed border-[var(--border-strong)] px-3 text-sm text-[var(--text-muted)]">AI 답변 제안 <span className="ml-1 rounded bg-black/5 px-1.5 text-xs">개발 중</span></button>
                   <Button type="submit" disabled={busy}>{busy ? '전송 중…' : internal ? '메모 저장' : '전송'}</Button>
                 </div>
               </form>)}
@@ -164,13 +184,10 @@ export function Inbox({ orgId, meId, canAct, members }: { orgId: string; meId: s
         </section>
 
         {sel_ && (
-          <aside aria-label="고객 정보" className="card hidden min-h-0 flex-col gap-2 p-4 xl:flex">
+          <aside aria-label="고객 정보" className="card hidden min-h-0 flex-col gap-3 overflow-y-auto rounded-md p-4 xl:flex">
             <h2 className="text-base font-semibold">고객</h2>
             {detail ? (<>
-              <p className="break-all">{detail.customer?.display_name ?? '-'}</p>
-              <p className="break-all text-[var(--text-secondary)]">{detail.customer?.email ?? '이메일 없음'}</p>
-              <p className="text-[var(--text-secondary)]">채널: {detail.channel?.name} ({detail.channel?.kind === 'email' ? '이메일' : '웹 채팅'})</p>
-              <p className="text-[var(--text-secondary)]">담당: {assigneeLabel(detail.assignee_id)}</p>
+              {customerBody}
             </>) : <><Skeleton className="h-5 w-3/4" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-2/3" /></>}
           </aside>)}
       </div>
